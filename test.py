@@ -107,6 +107,25 @@ class HelloFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.preprocess, self.prebutton)
         self.sizer13.Add(self.prebutton, 1, wx.ALL|wx.ALIGN_CENTRE) 
         
+        #size14 选择降维算法
+        self.sizer14 = wx.BoxSizer(wx.HORIZONTAL)
+        low_label = wx.StaticText(self, -1, "请选择降维算法")
+        self.low_al = 'tsne'
+        low_list = ['tsne','ICA','PCA (using SVD)','tSNE and PCA']
+
+        self.lowComBox = wx.ComboBox(self,size=(95, -1),choices=low_list,style=wx.CB_DROPDOWN)
+        self.lowbutton = wx.Button(self, -1, "确定降维算法")
+
+        self.Bind(wx.EVT_COMBOBOX, self.OnLowComBox, self.lowComBox)
+
+        self.Bind(wx.EVT_BUTTON, self.DIMENSIONALITY_REDUCTION, self.lowbutton)
+
+        self.sizer14.Add(low_label, 0, wx.ALL|wx.ALIGN_CENTRE)
+        self.sizer14.Add(self.lowComBox, 1, wx.EXPAND)
+        self.sizer14.Add(self.lowbutton, 1, wx.ALL|wx.ALIGN_CENTRE) 
+
+
+
         #主容器
         self.mainsizer = wx.BoxSizer(wx.HORIZONTAL)
         self.sizer1 = wx.BoxSizer(wx.VERTICAL) 
@@ -115,7 +134,8 @@ class HelloFrame(wx.Frame):
         self.mainsizer.Add(self.sizer2, 0, wx.GROW)
         # self.sizer1.Add(self.sizer11, 0, wx.GROW)
         self.sizer1.Add(self.sizer12, 0, wx.GROW)
-        self.sizer1.Add(self.sizer13, 0, wx.GROW)     
+        self.sizer1.Add(self.sizer13, 0, wx.GROW)
+        self.sizer1.Add(self.sizer14, 0, wx.GROW)     
         self.sizer2.Add(self.logger,1, 0, wx.GROW)
 
         # 激活sizer
@@ -220,8 +240,6 @@ class HelloFrame(wx.Frame):
             self.labels = None 
         print('%s cells, %s features loaded'%np.shape(X))
         self.logger.AppendText('%s cells, %s features loaded\n'%np.shape(X))
-        #Xtsne = np.loadtxt('reducedim_coor.txt')
-        #x1,x2 = Xtsne[:,0],Xtsne[:,1]
         return X,genes
 
     def OnOpenFileDir(self,event):
@@ -237,6 +255,7 @@ class HelloFrame(wx.Frame):
             self.SetStatusText(u"你已经选择文件目录"+self.path)
             self.logger.AppendText(u"你已经选择文件目录"+self.path+"\n")
             self.X,self.genes = self.get_datas(self.path)
+            self.X_pre,self.genes_pre = self.X,self.genes #不进行特征选择
             # self.Show(True)
 
         DirDialog.Destroy()
@@ -255,6 +274,7 @@ class HelloFrame(wx.Frame):
         # thresh int 保留所有细胞中均为大于thresh表达的基因
         # z_cutoff float
         # bins int
+        self.SetStatusText(u"正在进行特征选择")
         try:
             thresh = int(self.threshstr)
             z_cutoff = float(self.z_cutoffstr)
@@ -267,9 +287,43 @@ class HelloFrame(wx.Frame):
         keep_inds = split.dropseq_gene_selection(np.log(1+X_pre),z_cutoff=z_cutoff,bins=bins)
         self.X_pre,self.genes_pre = X_pre[:,keep_inds],genes_pre[keep_inds]
         self.logger.AppendText('Kept %d features for having > %d counts across all cells\n'%(len(keep_inds),thresh))
-        self.logger.AppendText('Kept %s features after DropSeq gene selection step.'%(len(self.X_pre[0])))
+        self.logger.AppendText('Kept %s features after DropSeq gene selection step.\n'%(len(self.X_pre[0])))
+        self.SetStatusText(u"特征选择完成")
        
-    
+    def OnLowComBox(self,event):
+        self.low_al = event.GetString()
+        self.logger.AppendText('选择算法: %s\n' % event.GetString())
+    def DIMENSIONALITY_REDUCTION(self,event):
+        self.SetStatusText(u"数据降维中")
+        if self.X_pre is None:
+            self.logger.AppendText('ERROR：请先进行特征选择！\n')
+            event.Skip()
+        if self.low_al == 'tsne':
+            t0 = time()
+            self.Xtsne = preprocessing.sk_tsne(self.X_pre)
+            self.x1,self.x2 = self.Xtsne[:,0],self.Xtsne[:,1]
+            t1 = time()
+            self.logger.AppendText("t-SNE: %.2g sec\n" % (t1 - t0))  # 算法用时
+        elif self.low_al == 'ICA':
+            t0 = time()
+            self.Xtsne = preprocessing.sk_ica(self.X_pre)
+            self.x1,self.x2 = self.Xtsne[:,0],self.Xtsne[:,1]
+            t1 = time()
+            self.logger.AppendText("ICA: %.2g sec\n" % (t1 - t0))  # 算法用时
+        elif self.low_al == 'PCA (using SVD)':
+            t0 = time()
+            self.Xtsne = preprocessing.sk_pca(self.X_pre)
+            self.x1,self.x2 = self.Xtsne[:,0],self.Xtsne[:,1]
+            t1 = time()
+            self.logger.AppendText("PCA(using SVD): %.2g sec\n" % (t1 - t0))  # 算法用时
+        elif self.low_al == 'tSNE and PCA':
+            t0 = time()
+            self.x1,self.x2 = preprocessing.low_dimensional_embedding(self.X_pre)
+            t1 = time()
+            self.logger.AppendText("tSNE and PCA: %.2g sec\n" % (t1 - t0))  # 算法用时
+            
+            self.logger.AppendText("ERROR:降维算法出错")  #
+        self.SetStatusText(u"数据降维完成")
  
 if __name__ == '__main__':
     # When this module is run (not imported) then create the app, the
