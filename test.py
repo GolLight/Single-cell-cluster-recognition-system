@@ -31,7 +31,47 @@ def load_mat_h5f(flname):
     h5f.close()
     return X
 
+def plot_embedding(x1,x2,ym,ys,labels):
+    #plt.figure(figsize=(16,6))
 
+    plt.subplot(2,2,1)
+    plt.scatter(x1,x2,edgecolors='none')
+    _ = plt.axis('off')
+    plt.title('Pre-clustering')
+    # plt.show()
+    
+    #plt.figure()
+    plt.subplot(2,2,2)
+    split.plot_labels_legend(x1,x2,split.str_labels_to_ints(ys),legend_pos=(1.5,1))
+    plt.title('After splitting step')
+    # plt.show()
+    
+    plt.subplot(2,2,3)
+    # plt.figure()
+    split.plot_labels_legend(x1,x2,ym,legend_pos=(1.5,1))
+    plt.title('After merging step')
+
+    # plt.show()
+    plt.subplot(2,2,4)
+    split.plot_labels_legend(x1,x2,split.str_labels_to_ints(labels),legend_pos=(1.5,1))
+    plt.title('true laels')
+    plt.show()
+
+def three_plots(x1,x2,Y,ys,ym,legend_pos=(1.5,1),markersize=5,select_inds=None):
+    plt.figure(figsize=(16,4))
+    plt.subplot(1,3,1)
+    split.plot_labels_legend(x1,x2,Y,show_axes=False,legend_pos=legend_pos,
+                             markersize=markersize,select_inds=select_inds)
+    plt.title('True labels')
+    plt.subplot(1,3,2)
+    split.plot_labels_legend(x1,x2,ys,show_axes=False,legend_pos=legend_pos,
+                             markersize=markersize,select_inds=select_inds)
+    plt.title('Labels after split')
+    plt.subplot(1,3,3)
+    split.plot_labels_legend(x1,x2,ym,show_axes=False,legend_pos=legend_pos,
+                             markersize=markersize,select_inds=select_inds)
+    plt.title('Labels after merge')
+    plt.show()
 class HelloFrame(wx.Frame):
     """
     A Frame that says Hello World
@@ -113,7 +153,7 @@ class HelloFrame(wx.Frame):
         self.low_al = 'tsne'
         low_list = ['tsne','ICA','PCA (using SVD)','tSNE and PCA']
 
-        self.lowComBox = wx.ComboBox(self,size=(95, -1),choices=low_list,style=wx.CB_DROPDOWN)
+        self.lowComBox = wx.ComboBox(self,size=(95, -1),value="tsne", choices=low_list,style=wx.CB_DROPDOWN)
         self.lowbutton = wx.Button(self, -1, "确定降维算法")
 
         self.Bind(wx.EVT_COMBOBOX, self.OnLowComBox, self.lowComBox)
@@ -124,6 +164,33 @@ class HelloFrame(wx.Frame):
         self.sizer14.Add(self.lowComBox, 1, wx.EXPAND)
         self.sizer14.Add(self.lowbutton, 1, wx.ALL|wx.ALIGN_CENTRE) 
 
+        #超参数
+        split_scoreT = wx.StaticText(self, -1, "split_score=")
+        # min_clust_sizeT = wx.StaticText(self, -1, "min_clust_size=")
+        # disband_percentileT = wx.StaticText(self, -1, "disband_percentile=")
+        merge_scoreT = wx.StaticText(self, -1, "merge_score=")
+        # outlier_threshold_percentileT = wx.StaticText(self, -1, "outlier_threshold_percentile=")
+        
+        self.split_score_str = "60"
+        self.merge_score_str = "30"
+        
+        self.split_score = wx.TextCtrl(self,size=(20, -1),value="60")
+        self.merge_score = wx.TextCtrl(self,size=(20, -1),value="30")
+
+        self.sizer15 = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.cluterbutton = wx.Button(self, -1, "确定")
+
+        self.sizer15.Add(split_scoreT, 0, wx.ALL|wx.ALIGN_CENTRE)
+        self.sizer15.Add(self.split_score, 1, wx.EXPAND)
+        self.sizer15.Add(merge_scoreT, 0, wx.ALL|wx.ALIGN_CENTRE)
+        self.sizer15.Add(self.merge_score, 1, wx.EXPAND)
+
+        self.Bind(wx.EVT_TEXT, self.Onsplit_score, self.split_score)
+        self.Bind(wx.EVT_TEXT, self.Onmerge_score, self.merge_score)
+        
+        self.Bind(wx.EVT_BUTTON, self.clutering, self.cluterbutton)
+        self.sizer15.Add(self.cluterbutton, 1, wx.ALL|wx.ALIGN_CENTRE)
 
 
         #主容器
@@ -135,7 +202,8 @@ class HelloFrame(wx.Frame):
         # self.sizer1.Add(self.sizer11, 0, wx.GROW)
         self.sizer1.Add(self.sizer12, 0, wx.GROW)
         self.sizer1.Add(self.sizer13, 0, wx.GROW)
-        self.sizer1.Add(self.sizer14, 0, wx.GROW)     
+        self.sizer1.Add(self.sizer14, 0, wx.GROW)
+        self.sizer1.Add(self.sizer15, 0, wx.GROW)      
         self.sizer2.Add(self.logger,1, 0, wx.GROW)
 
         # 激活sizer
@@ -269,11 +337,17 @@ class HelloFrame(wx.Frame):
     def Onbins(self,event):
         self.binsstr = event.GetString()
         self.logger.AppendText('bins: %s\n' % event.GetString())
+    def Onsplit_score(self,event):
+        self.split_score_str = event.GetString()
+        self.logger.AppendText('split_score_threshold: %s\n' % event.GetString())
+    def Onmerge_score(self,event):
+        self.merge_score_str = event.GetString()
+        self.logger.AppendText('merge_score_threshold: %s\n' % event.GetString())
     
     def preprocess(self,event):
         # thresh int 保留所有细胞中均为大于thresh表达的基因
-        # z_cutoff float
-        # bins int
+        # z_cutoff float 离散值
+        # bins int  基因根据表达水平放在相等的箱子里
         self.SetStatusText(u"正在进行特征选择")
         try:
             thresh = int(self.threshstr)
@@ -322,8 +396,37 @@ class HelloFrame(wx.Frame):
             t1 = time()
             self.logger.AppendText("tSNE and PCA: %.2g sec\n" % (t1 - t0))  # 算法用时
             
+        else:
             self.logger.AppendText("ERROR:降维算法出错")  #
         self.SetStatusText(u"数据降维完成")
+    
+    def clutering(self,event):
+        self.SetStatusText(u"正在进行聚类")
+        try:
+            split_score = int(self.split_score_str)
+            merge_score = int(self.merge_score_str)
+        except ValueError:
+            self.logger.AppendText("invalid input")
+            event.Skip()
+        if self.X_pre is None:
+            self.logger.AppendText('ERROR：请先进行特征选择！\n')
+            event.Skip()
+        D = split.log_correlation(self.X_pre) 
+        ys,shistory = split.dendrosplit((D,self.X_pre),
+                                preprocessing='precomputed',
+                                score_threshold=split_score,
+                                verbose=True,
+                                disband_percentile=50)
+        #plot_embedding(D)
+        # Merge cluster labels
+        ym,mhistory = merge.dendromerge((D,self.X_pre),ys,score_threshold=merge_score,preprocessing='precomputed',
+                                verbose=True,outlier_threshold_percentile=90)
+        if self.labels is not None:
+            self.logger.AppendText('Adjusted rand score (ys): %.2f\n'%(adjusted_rand_score(self.labels,ys)))
+            self.logger.AppendText('Adjusted rand score (ym): %.2f\n'%(adjusted_rand_score(self.labels,ym)))
+            #plot_embedding(self.x1,self.x2,ym,ys,self.labels)
+            three_plots(self.x1,self.x2,self.labels,ys,ym,markersize=4,legend_pos=(1,-0.2))
+        self.SetStatusText(u"聚类完成")
  
 if __name__ == '__main__':
     # When this module is run (not imported) then create the app, the

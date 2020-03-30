@@ -108,8 +108,9 @@ def main():
     keep_inds = split.dropseq_gene_selection(np.log(1+X),z_cutoff=1.5,bins=5)
     X,genes = X[:,keep_inds],genes[keep_inds]
     t0 = time()
-    Xtsne = preprocessing.sk_tsne(X)
-    x1,x2 = Xtsne[:,0],Xtsne[:,1]
+    # Xtsne = preprocessing.sk_tsne(X)
+    # x1,x2 = Xtsne[:,0],Xtsne[:,1]
+    x1,x2 = preprocessing.low_dimensional_embedding(X)
     t1 = time()
     print("t-SNE: %.2g sec" % (t1 - t0))  # 算法用时
     print(u"转换成功")
