@@ -18,6 +18,7 @@ import pickle,h5py
 import pandas as pd
 import numpy as np 
 from sklearn.metrics import adjusted_rand_score
+import Gene_select
 
 # Save expression matrix
 def save_mat_h5f(X,flname):
@@ -352,13 +353,15 @@ class HelloFrame(wx.Frame):
         try:
             thresh = int(self.threshstr)
             z_cutoff = float(self.z_cutoffstr)
-            bins = int(self.binsstr)
+            bins = float(self.binsstr)
         except ValueError:
             self.logger.AppendText("invalid input")
             event.Skip()
+        # X_pre,genes_pre = split.filter_genes(self.X,self.genes,thresh)
+        # # DropSeq approach to gene selection
+        # keep_inds = split.dropseq_gene_selection(np.log(1+X_pre),z_cutoff=z_cutoff,bins=bins)
         X_pre,genes_pre = split.filter_genes(self.X,self.genes,thresh)
-        # DropSeq approach to gene selection
-        keep_inds = split.dropseq_gene_selection(np.log(1+X_pre),z_cutoff=z_cutoff,bins=bins)
+        keep_inds = Gene_select.gene_selet(X_pre,z_cutoff,bins)
         self.X_pre,self.genes_pre = X_pre[:,keep_inds],genes_pre[keep_inds]
         self.logger.AppendText('Kept %d features for having > %d counts across all cells\n'%(len(keep_inds),thresh))
         self.logger.AppendText('Kept %s features after DropSeq gene selection step.\n'%(len(self.X_pre[0])))
