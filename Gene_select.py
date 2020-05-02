@@ -4,7 +4,7 @@
 @Author: GolLight
 @LastEditors: Gollight
 @Date: 2020-04-24 21:04:48
-@LastEditTime: 2020-04-26 01:25:43
+@LastEditTime: 2020-05-02 21:12:42
 '''
 
 import numpy as np
@@ -35,7 +35,7 @@ def normalize_all(a):
 @param X {array} N * M matrix N is cell_id,M is gene_id 
 @return: 筛选过后的基因
 '''
-def gene_selet(X,cutoff=0.2,mean = 6):
+def gene_selet(X,k=0.2,cutoff = 2):
     # keep_inds_thresh = np.where(np.sum(X,0) > thresh)[0]
     # keep_inds_MT = np.array([i for i in range(len(genes)) if 'MT-' not in genes[i].upper()])
     # keep_inds = np.intersect1d(keep_inds_thresh,keep_inds_MT)    #交集
@@ -56,14 +56,26 @@ def gene_selet(X,cutoff=0.2,mean = 6):
     print(len(none_zeros))
     print(len(keep_inds1))
     keep_inds = np.zeros(np.shape(X)[1])
+    mean = np.mean(a)
+    # exist = (a > 0) * 1.0
+    # num = np.sum(exist)
+    sum = np.sum(a)
+    # mean = sum/num
+    # amin, amax = a.min(), a.max() # 求最大最小值
     for i in keep_inds1:
         # zscores = stats.mstats.zscore(a[:,i])
+        # zmax,zmin = zscores.max(),zscores.min()
         var = np.var(a[:,i])
         mean_c = np.mean(a[:,i])
+        cmax = a[:,i].max()
+        # exist = (a[:,i] > 0) * 1.0
+        # num = np.sum(exist)
+        csum = np.sum(a[:,i])
+        # mean_c = np.sum(a[:,i])
         # print(zscores)
         # print(var)
         #keep_inds[i] = zscores > cutoff  #太单调了
-        keep_inds[i] = var > cutoff and mean_c > mean  #太单调了
+        keep_inds[i] = var > 1 and cmax > mean*cutoff and csum > (k * sum/len(keep_inds))#太单调了
     for i in none_zeros:
         keep_inds[i] = 1
     print('Kept %d features for all cells'%(np.sum(keep_inds)))
@@ -72,35 +84,7 @@ def gene_selet(X,cutoff=0.2,mean = 6):
 
 
 
-#a = np.arange(16).reshape(4,4)
-a = [0,0,1,6,
-    0,1,0,2,
-    0,5,0,3,
-    0,1,1,4]
-a = np.array(a).reshape(4,4)
-#a = normalize_all(a)
-print(normalize_all(a))
-# bbb = list(set(np.where(a == 0)[1])) #含有0
-# none = np.arange(np.shape(a)[1])
-# none_z = np.array(list(set(none) - set(bbb))) #不含有0
-# # keep_inds = np.zeros(np.shape(a)[1])
-# keep_inds_thresh = np.where(np.sum(a,0) > 0)[0]
-# both_zeros = np.where(np.sum(a,0) == 0)[0]  #全为0的列坐标
-# keep = np.intersect1d(bbb,keep_inds_thresh) #有一些是零
-# # print(keep_inds_thresh)
-# # print(none)
-# # print(bbb)
-# print(both_zeros)
-# print(keep)
-# print(none_z)
 
-# keep_inds = np.zeros(np.shape(a)[1])
-# for i in keep:
-#     keep_inds[i] = np.mean(a[:,i]) > 0.2
-#     print(np.mean(a[:,i]))
-# for i in none_z:
-#      keep_inds[i] = 1
 
-keep_inds = gene_selet(a,0.02,1)
-print(keep_inds)
-print(a[:,keep_inds])
+
+

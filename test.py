@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from time import time 
 #from sklearn import datasets
 from sklearn.manifold import TSNE
-from dendrosplit import split,merge,utils,preprocessing
+from dendrosplit import split,merge,utils,preprocessing,clustering
 import pickle,h5py
 import pandas as pd
 import numpy as np 
@@ -272,8 +272,10 @@ class HelloFrame(wx.Frame):
 
     def OnHello(self, event):
         """Say hello to the user."""
-        wx.MessageBox("Hello again from wxPython")
-
+        # wx.MessageBox("Hello again from wxPython")
+        wx.MessageBox(self.logger.GetValue())
+        fw = open(self.path+"/logger.txt", 'w')    #将要输出保存的文件地址
+        fw.write(self.logger.GetValue())
 
     def OnAbout(self, event):
         """Display an About Dialog"""
@@ -298,8 +300,17 @@ class HelloFrame(wx.Frame):
         fileDialog.Destroy()
 
     def get_datas(self,path):
-        X = load_mat_h5f(path+'/expr.h5')
-        self.logger.AppendText('sucessfully load expr!\n')
+        if os.path.isfile(path+'/expr.h5'):
+            X = load_mat_h5f(path+'/expr.h5')
+            self.logger.AppendText('sucessfully load expr!\n')
+        elif os.path.isfile(path+'/expr.txt'):
+            X = np.loadtxt(path+'/expr.txt',dtype=str).T
+            X = np.array(X,dtype = 'float_')        #提取出来类型报错
+            self.logger.AppendText('sucessfully load expr!\n')
+        else:
+            self.logger.AppendText('faild load expr!\n')
+        
+        
         genes = np.loadtxt(path+'/features.txt',dtype=str)
         self.logger.AppendText('sucessfully load features!\n')
         if os.path.isfile(path+'/labels.txt'):
@@ -331,19 +342,19 @@ class HelloFrame(wx.Frame):
     
     def Onthresh(self,event):
         self.threshstr = event.GetString()
-        self.logger.AppendText('thresh: %s\n' % event.GetString())
+        # self.logger.AppendText('thresh: %s\n' % event.GetString())
     def Onz_cutoff(self,event):
         self.z_cutoffstr = event.GetString()
-        self.logger.AppendText('z_cutoff: %s\n' % event.GetString())
+        # self.logger.AppendText('z_cutoff: %s\n' % event.GetString())
     def Onbins(self,event):
         self.binsstr = event.GetString()
-        self.logger.AppendText('bins: %s\n' % event.GetString())
+        # self.logger.AppendText('bins: %s\n' % event.GetString())
     def Onsplit_score(self,event):
         self.split_score_str = event.GetString()
-        self.logger.AppendText('split_score_threshold: %s\n' % event.GetString())
+        # self.logger.AppendText('split_score_threshold: %s\n' % event.GetString())
     def Onmerge_score(self,event):
         self.merge_score_str = event.GetString()
-        self.logger.AppendText('merge_score_threshold: %s\n' % event.GetString())
+        # self.logger.AppendText('merge_score_threshold: %s\n' % event.GetString())
     
     def preprocess(self,event):
         # thresh int 保留所有细胞中均为大于thresh表达的基因
@@ -357,21 +368,27 @@ class HelloFrame(wx.Frame):
         except ValueError:
             self.logger.AppendText("invalid input")
             event.Skip()
+        self.logger.AppendText('thresh: %s\n' % self.threshstr)
+        self.logger.AppendText('z_cutoff: %s\n' % self.z_cutoffstr)
+        self.logger.AppendText('bins: %s\n' % self.binsstr)
+        self.logger.AppendText(u"------------正在进行特征选择,请稍后--------\n")
         # X_pre,genes_pre = split.filter_genes(self.X,self.genes,thresh)
         # # DropSeq approach to gene selection
-        # keep_inds = split.dropseq_gene_selection(np.log(1+X_pre),z_cutoff=z_cutoff,bins=bins)
+        # keep_inds = split.dropseq_gene_selection(np.log(1+X_pre),z_cutoff=z_cutoff,bins=5)
         X_pre,genes_pre = split.filter_genes(self.X,self.genes,thresh)
-        keep_inds = Gene_select.gene_selet(X_pre,z_cutoff,bins)
+        keep_inds = Gene_select.gene_selet(X_pre,cutoff=z_cutoff,k=bins)
         self.X_pre,self.genes_pre = X_pre[:,keep_inds],genes_pre[keep_inds]
         self.logger.AppendText('Kept %d features for having > %d counts across all cells\n'%(len(keep_inds),thresh))
         self.logger.AppendText('Kept %s features after DropSeq gene selection step.\n'%(len(self.X_pre[0])))
+        self.logger.AppendText(u"----------------特征选择完成-------------\n")
         self.SetStatusText(u"特征选择完成")
        
     def OnLowComBox(self,event):
         self.low_al = event.GetString()
-        self.logger.AppendText('选择算法: %s\n' % event.GetString())
+        # self.logger.AppendText('选择算法: %s\n' % event.GetString())
     def DIMENSIONALITY_REDUCTION(self,event):
         self.SetStatusText(u"数据降维中")
+        self.logger.AppendText(u"------------正在进行数据降维,请稍后------------\n")
         if self.X_pre is None:
             self.logger.AppendText('ERROR：请先进行特征选择！\n')
             event.Skip()
@@ -401,10 +418,12 @@ class HelloFrame(wx.Frame):
             
         else:
             self.logger.AppendText("ERROR:降维算法出错")  #
+        self.logger.AppendText(u"------------数据降维完成--------------\n")
         self.SetStatusText(u"数据降维完成")
     
     def clutering(self,event):
         self.SetStatusText(u"正在进行聚类")
+        self.logger.AppendText(u"--------正在进行聚类,请稍后-----------\n")
         try:
             split_score = int(self.split_score_str)
             merge_score = int(self.merge_score_str)
@@ -424,11 +443,18 @@ class HelloFrame(wx.Frame):
         # Merge cluster labels
         ym,mhistory = merge.dendromerge((D,self.X_pre),ys,score_threshold=merge_score,preprocessing='precomputed',
                                 verbose=True,outlier_threshold_percentile=90)
+
+        # 对比算法
+        ysk = clustering.skDBSCAN(D,eps=0.005,min_samples=10)
+        ykmeans = clustering.kMeans(self.X_pre,8)
         if self.labels is not None:
             self.logger.AppendText('Adjusted rand score (ys): %.2f\n'%(adjusted_rand_score(self.labels,ys)))
             self.logger.AppendText('Adjusted rand score (ym): %.2f\n'%(adjusted_rand_score(self.labels,ym)))
+            self.logger.AppendText('Adjusted rand score (ysk): %.2f\n'%(adjusted_rand_score(self.labels,ysk)))
+            self.logger.AppendText('Adjusted rand score (ykmeans): %.2f\n'%(adjusted_rand_score(self.labels,ykmeans)))
             #plot_embedding(self.x1,self.x2,ym,ys,self.labels)
-            three_plots(self.x1,self.x2,self.labels,ys,ym,markersize=4,legend_pos=(1,-0.2))
+            #three_plots(self.x1,self.x2,self.labels,ys,ym,markersize=4,legend_pos=(1,-0.2))
+        self.logger.AppendText(u"-------------聚类完成-------------\n")
         self.SetStatusText(u"聚类完成")
  
 if __name__ == '__main__':
