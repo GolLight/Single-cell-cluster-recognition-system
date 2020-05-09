@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 2020/3/26 GolLight
@@ -19,6 +19,11 @@ import pandas as pd
 import numpy as np 
 from sklearn.metrics import adjusted_rand_score
 import Gene_select
+
+
+def count_labels(labels):
+    len1 = len(set(labels))
+    return len1
 
 # Save expression matrix
 def save_mat_h5f(X,flname):
@@ -123,12 +128,12 @@ class HelloFrame(wx.Frame):
         z_cutoffT = wx.StaticText(self, -1, "z_cutoff=")
         binsT = wx.StaticText(self, -1, "bins=")
         
-        self.threshstr = "0"
-        self.z_cutoffstr = "1.5"
+        self.threshstr = "0.15"
+        self.z_cutoffstr = "0.1"
         self.binsstr = "5"
         
-        self.thresh = wx.TextCtrl(self,size=(20, -1),value="0")
-        self.z_cutoff = wx.TextCtrl(self,size=(20, -1),value="1.5")
+        self.thresh = wx.TextCtrl(self,size=(20, -1),value="0.15")
+        self.z_cutoff = wx.TextCtrl(self,size=(20, -1),value="0.1")
         self.bins = wx.TextCtrl(self,size=(20, -1),value="5")
 
         self.sizer13 = wx.BoxSizer(wx.HORIZONTAL)
@@ -361,25 +366,34 @@ class HelloFrame(wx.Frame):
         # z_cutoff float 离散值
         # bins int  基因根据表达水平放在相等的箱子里
         self.SetStatusText(u"正在进行特征选择")
+        self.logger.AppendText(u"------------正在进行特征选择,请稍后--------\n")
         try:
-            thresh = int(self.threshstr)
+            thresh = float(self.threshstr)
             z_cutoff = float(self.z_cutoffstr)
-            bins = float(self.binsstr)
+            bins = int(self.binsstr)
         except ValueError:
             self.logger.AppendText("invalid input")
             event.Skip()
         self.logger.AppendText('thresh: %s\n' % self.threshstr)
         self.logger.AppendText('z_cutoff: %s\n' % self.z_cutoffstr)
         self.logger.AppendText('bins: %s\n' % self.binsstr)
-        self.logger.AppendText(u"------------正在进行特征选择,请稍后--------\n")
+        
         # X_pre,genes_pre = split.filter_genes(self.X,self.genes,thresh)
         # # DropSeq approach to gene selection
         # keep_inds = split.dropseq_gene_selection(np.log(1+X_pre),z_cutoff=z_cutoff,bins=5)
-        X_pre,genes_pre = split.filter_genes(self.X,self.genes,thresh)
+        X_pre,genes_pre = split.filter_genes(self.X,self.genes,0)
+        self.logger.AppendText('Kept %d features for having > %d counts across all cells\n'%(len(X_pre[0]),0))
+        if thresh != 0:
+            keep_inds_filter = Gene_select.filter_genes(X_pre,min_pct_cells=thresh)
+            X_pre,genes_pre = X_pre[:,keep_inds_filter],genes_pre[keep_inds_filter]
         # keep_inds = Gene_select.gene_selet(X_pre,cutoff=z_cutoff,k=bins)
-        keep_inds = Gene_select.select_variable_genes(X_pre,loess_frac=z_cutoff,percentile=bins)
+        # keep_inds = Gene_select.select_variable_genes(X_pre,loess_frac=z_cutoff,percentile=bins)
+        #keep_inds = Gene_select.filter_genes(X_pre,min_pct_cells=thresh,min_count=bins,expr_cutoff=z_cutoff)
+        # keep_inds = Gene_select.filter_and_slect_genes(X_pre,multi = thresh,min_pct_cells = z_cutoff,k=bins)
+        #keep_inds = Gene_select.filter_and_slect_genes1(X_pre,z_cutoff = z_cutoff,bins=bins,min_pct_cells = thresh)
+        keep_inds = split.dropseq_gene_selection(np.log(1+X_pre),z_cutoff=z_cutoff,bins=bins)
         self.X_pre,self.genes_pre = X_pre[:,keep_inds],genes_pre[keep_inds]
-        self.logger.AppendText('Kept %d features for having > %d counts across all cells\n'%(len(keep_inds),thresh))
+       
         self.logger.AppendText('Kept %s features after DropSeq gene selection step.\n'%(len(self.X_pre[0])))
         self.logger.AppendText(u"----------------特征选择完成-------------\n")
         self.SetStatusText(u"特征选择完成")
@@ -446,15 +460,22 @@ class HelloFrame(wx.Frame):
                                 verbose=True,outlier_threshold_percentile=90)
 
         # 对比算法
-        ysk = clustering.skDBSCAN(D,eps=0.005,min_samples=10)
-        ykmeans = clustering.kMeans(self.X_pre,8)
+        if self.labels is not None:
+            cluster_num = count_labels(self.labels)
+            ysk = clustering.skDBSCAN(D)
+            ykmeans = clustering.kMeans(self.X_pre,cluster_num)
+        else:
+            ysk = clustering.skDBSCAN(D)
+            ykmeans = clustering.kMeans(self.X_pre,8)
+        
+        
         if self.labels is not None:
             self.logger.AppendText('Adjusted rand score (ys): %.2f\n'%(adjusted_rand_score(self.labels,ys)))
             self.logger.AppendText('Adjusted rand score (ym): %.2f\n'%(adjusted_rand_score(self.labels,ym)))
             self.logger.AppendText('Adjusted rand score (ysk): %.2f\n'%(adjusted_rand_score(self.labels,ysk)))
             self.logger.AppendText('Adjusted rand score (ykmeans): %.2f\n'%(adjusted_rand_score(self.labels,ykmeans)))
             #plot_embedding(self.x1,self.x2,ym,ys,self.labels)
-            #three_plots(self.x1,self.x2,self.labels,ys,ym,markersize=4,legend_pos=(1,-0.2))
+            three_plots(self.x1,self.x2,self.labels,ys,ym,markersize=4,legend_pos=(1,-0.2))
         self.logger.AppendText(u"-------------聚类完成-------------\n")
         self.SetStatusText(u"聚类完成")
  

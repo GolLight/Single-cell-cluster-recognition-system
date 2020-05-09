@@ -4,7 +4,7 @@
 @Author: GolLight
 @LastEditors: Gollight
 @Date: 2020-04-24 21:04:48
-@LastEditTime: 2020-05-07 00:44:44
+@LastEditTime: 2020-05-09 21:22:07
 '''
 
 import numpy as np
@@ -51,7 +51,7 @@ def project_point_to_curve_distance(XP,p):#投影点p到曲线XP距离
 @param X {array} N * M matrix N is cell_id,M is gene_id 
 @return: 筛选过后的基因
 '''
-def gene_selet(X,k=0.2,cutoff = 2):
+def gene_selet(X,k=0.2,multi = 2):
     # keep_inds_thresh = np.where(np.sum(X,0) > thresh)[0]
     # keep_inds_MT = np.array([i for i in range(len(genes)) if 'MT-' not in genes[i].upper()])
     # keep_inds = np.intersect1d(keep_inds_thresh,keep_inds_MT)    #交集
@@ -75,27 +75,58 @@ def gene_selet(X,k=0.2,cutoff = 2):
     mean = np.mean(a)
     # exist = (a > 0) * 1.0
     # num = np.sum(exist)
-    sum = np.sum(a)
+    # sum = np.sum(a)
     # mean = sum/num
     # amin, amax = a.min(), a.max() # 求最大最小值
     for i in keep_inds1:
         # zscores = stats.mstats.zscore(a[:,i])
         # zmax,zmin = zscores.max(),zscores.min()
         var = np.var(a[:,i])
-        mean_c = np.mean(a[:,i])
+        # mean_c = np.mean(a[:,i])
         cmax = a[:,i].max()
         # exist = (a[:,i] > 0) * 1.0
         # num = np.sum(exist)
-        csum = np.sum(a[:,i])
+        # csum = np.sum(a[:,i])
         # mean_c = np.sum(a[:,i])
         # print(zscores)
         # print(var)
         #keep_inds[i] = zscores > cutoff  #太单调了
-        keep_inds[i] = var > 1 and cmax > mean*cutoff and csum > (k * sum/len(keep_inds))#太单调了
+        keep_inds[i] = var > k and cmax > mean*multi #太单调了
     for i in none_zeros:
         keep_inds[i] = 1
     print('Kept %d features for all cells'%(np.sum(keep_inds)))
     return keep_inds.astype('bool')
+
+
+def filter_genes(X,min_num_cells = None,min_pct_cells = None,min_count = None, expr_cutoff = 1):#根据不同的指标过滤基因。
+    """
+    min_num_cells:  `int'，可选（默认：无）      表达一个基因的最小细胞数
+    min_pct_cells:  `float`，可选（默认：无）    表达一个基因的细胞的最小百分比
+    min_count:    `int'，可选（默认：无）        一个基因的最小读取数
+    expr_cutoff:`float`，可选（默认值：1）       表达式截断。如果大于expr_截止值，则该基因被认为是“表达的”
+    """
+    n_counts = np.sum(X,axis=0)#axis=0，按列相加  
+    n_cells = np.sum(X>expr_cutoff,axis=0)
+    
+    if(sum(list(map(lambda x: x is None,[min_num_cells,min_pct_cells,min_count])))==3):
+    #判断是否过滤
+        print('No filtering')
+    else:
+        gene_subset = np.ones(np.shape(X)[1],dtype=bool)
+        #创建长度为基因数的一位bool型数组，初始化为1.记录每个基因是否表达
+        if(min_num_cells!=None):
+            print('Filter genes based on min_num_cells')
+            gene_subset = (n_cells>min_num_cells) & gene_subset
+        if(min_pct_cells!=None):
+            print('Filter genes based on min_pct_cells')
+            gene_subset = (n_cells>np.shape(X)[0]*min_pct_cells) & gene_subset
+        if(min_count!=None):
+            print('Filter genes based on min_count')
+            gene_subset = (n_counts>min_count) & gene_subset 
+
+        print('After filtering out low-expressed genes: ')
+    return gene_subset
+
 
 
 def select_variable_genes(X,loess_frac=0.1,percentile=95,n_genes = None,n_jobs = multiprocessing.cpu_count()):
@@ -157,8 +188,39 @@ def select_variable_genes(X,loess_frac=0.1,percentile=95,n_genes = None,n_jobs =
     return id_var_genes
 
 
+def filter_and_slect_genes(X,multi = 2,min_pct_cells = None,k=0.1):
+    gene_subset1 = filter_genes(X,min_pct_cells=min_pct_cells)
+    gene_subset2 = gene_selet(X,k=k,multi = multi)
+    gene_subset = gene_subset1 & gene_subset2
+    return gene_subset
+
+def filter_and_slect_genes1(X,z_cutoff = 2,min_pct_cells = None,bins=5):
+    gene_subset1 = filter_genes(X,min_pct_cells=min_pct_cells)
+    gene_subset2 = dropseq_gene_selection(X,z_cutoff=z_cutoff,bins=bins)
+    gene_subset = gene_subset1 & gene_subset2
+    return gene_subset
+    
+# Dropseq gene selection 
+def assign_to_bins(v,bins=20):
+    last_ind = int(len(v)-len(v)%bins)
+    sorted_inds = np.argsort(v)
+    bin_assignments = np.split(sorted_inds[:last_ind],bins)
+    bin_assignments[-1] = np.append(bin_assignments[-1],sorted_inds[last_ind:])
+    assignments = np.zeros(len(v))
+    for i,b in enumerate(bin_assignments):
+        assignments[b] = i
+    return assignments
+
+def dropseq_gene_selection(X,z_cutoff=1.7,bins=20):
+    m = np.mean(X,0)
+    assignments = assign_to_bins(m,bins=bins)
+    dispersion = np.divide(np.var(X,0),m)
+    # select genes to keep based on zscore within assigned bins
+    keep_inds = np.zeros(np.shape(X)[1])
+    for i in range(bins):
+        zscores = stats.mstats.zscore(dispersion[assignments == i])
+        keep_inds[assignments == i] = zscores > z_cutoff
+    return keep_inds.astype('bool')
 
 
-
-
-
+print(1./1)
