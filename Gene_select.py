@@ -4,7 +4,7 @@
 @Author: GolLight
 @LastEditors: Gollight
 @Date: 2020-04-24 21:04:48
-@LastEditTime: 2020-05-09 21:22:07
+@LastEditTime: 2020-05-10 18:13:42
 '''
 
 import numpy as np
@@ -221,6 +221,3 @@ def dropseq_gene_selection(X,z_cutoff=1.7,bins=20):
         zscores = stats.mstats.zscore(dispersion[assignments == i])
         keep_inds[assignments == i] = zscores > z_cutoff
     return keep_inds.astype('bool')
-
-
-print(1./1)

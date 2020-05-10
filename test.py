@@ -7,7 +7,8 @@ import sys
 import os
 sys.path.append("dendrosplit")
 import wx
-from time import time
+# from time import time
+import time as times
 import numpy as np
 import matplotlib.pyplot as plt
 from time import time 
@@ -63,6 +64,7 @@ def plot_embedding(x1,x2,ym,ys,labels):
     plt.title('true laels')
     plt.show()
 
+
 def three_plots(x1,x2,Y,ys,ym,legend_pos=(1.5,1),markersize=5,select_inds=None):
     plt.figure(figsize=(16,4))
     plt.subplot(1,3,1)
@@ -78,6 +80,25 @@ def three_plots(x1,x2,Y,ys,ym,legend_pos=(1.5,1),markersize=5,select_inds=None):
                              markersize=markersize,select_inds=select_inds)
     plt.title('Labels after merge')
     plt.show()
+
+def three_no_labels_plot(x1,x2,ym,ysk,ykmeans,legend_pos=(1.5,1),markersize=5,select_inds=None):
+    plt.figure(figsize=(16,4))
+    plt.subplot(1,3,1)
+    split.plot_labels_legend(x1,x2,ym,show_axes=False,legend_pos=legend_pos,
+                             markersize=markersize,select_inds=select_inds)
+    plt.title('Labels after merge')
+    plt.subplot(1,3,2)
+    split.plot_labels_legend(x1,x2,ysk,show_axes=False,legend_pos=legend_pos,
+                             markersize=markersize,select_inds=select_inds)
+    plt.title('DBSCAN')
+    plt.subplot(1,3,3)
+    split.plot_labels_legend(x1,x2,ykmeans,show_axes=False,legend_pos=legend_pos,
+                             markersize=markersize,select_inds=select_inds)
+    plt.title('kmeans')
+    plt.show()
+
+
+
 class HelloFrame(wx.Frame):
     """
     A Frame that says Hello World
@@ -130,11 +151,11 @@ class HelloFrame(wx.Frame):
         
         self.threshstr = "0.15"
         self.z_cutoffstr = "0.1"
-        self.binsstr = "5"
+        self.binsstr = "2"
         
         self.thresh = wx.TextCtrl(self,size=(20, -1),value="0.15")
         self.z_cutoff = wx.TextCtrl(self,size=(20, -1),value="0.1")
-        self.bins = wx.TextCtrl(self,size=(20, -1),value="5")
+        self.bins = wx.TextCtrl(self,size=(20, -1),value="2")
 
         self.sizer13 = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -239,7 +260,7 @@ class HelloFrame(wx.Frame):
         fileMenu = wx.Menu()
         # The "\t..." syntax defines an accelerator key that also triggers
         # the same event
-        helloItem = fileMenu.Append(-1, "&Hello...\tCtrl-H",
+        helloItem = fileMenu.Append(-1, "&保存日志",
                 "Help string shown in status bar for this menu item")
         newItem = fileMenu.Append(wx.ID_NEW,"打开")
         fileMenu.AppendSeparator()
@@ -279,13 +300,21 @@ class HelloFrame(wx.Frame):
         """Say hello to the user."""
         # wx.MessageBox("Hello again from wxPython")
         wx.MessageBox(self.logger.GetValue())
-        fw = open(self.path+"/logger.txt", 'w')    #将要输出保存的文件地址
+        fw = open(self.path+times.strftime("/%Y_%m_%d_%H_%M_%S_", times.localtime())+"logger.txt", 'w')    #将要输出保存的文件地址
         fw.write(self.logger.GetValue())
 
     def OnAbout(self, event):
         """Display an About Dialog"""
-        wx.MessageBox("This is a wxPython Hello World sample",
-                      "About Hello World 2",
+        messtr = u"单细胞簇识别系统\n"
+        messtr =messtr +u"这是个识别单细胞簇的层次聚类系统，使用方法如下：\n" 
+        messtr =messtr +u"1.将你的数据处理成三个文件expr.h5,features.txt,labels.txt,分别是用h5py.create_dataset创建的N细胞*M基因的细胞表达式矩阵和用np.savetxt函数保存的基因文件和标签文件(注意一行一个不能有空格）放在一个文件夹即可，可以没有标签\n"
+        messtr =messtr +u"2.点击选择文件按钮选择文件夹，此时右边会提示成功与否\n"
+        messtr =messtr +u"3.thresh表示过滤掉某个基因表达的细胞数少于百分比细胞数的，范围为0-1，为零时不过滤低表达基因\n" 
+        messtr =messtr +u"z_cutoff是离散值，bins是分为几份，是整数，将基因按照在所有细胞表达均值分成bins份，然后去掉每一份zscore小于z_cutoff的基因\n"
+        messtr =messtr +u"4.可以选择不同的降维算法进行降维\n"
+        messtr =messtr +u"5.split_score和merge_score是聚类的两个超参数，一般后者是前者的一半，基于韦尔奇t检查的两个集群之间的距离度量如果大于这个split_score就分裂，小于merge_score就合并(采用的聚类方法是先分裂再合并的)"
+        wx.MessageBox(messtr,
+                      "About System",
                       wx.OK|wx.ICON_INFORMATION)
 
     def OnOpenFile(self,event):
@@ -313,11 +342,15 @@ class HelloFrame(wx.Frame):
             X = np.array(X,dtype = 'float_')        #提取出来类型报错
             self.logger.AppendText('sucessfully load expr!\n')
         else:
+            X = None
             self.logger.AppendText('faild load expr!\n')
         
-        
-        genes = np.loadtxt(path+'/features.txt',dtype=str)
-        self.logger.AppendText('sucessfully load features!\n')
+        if os.path.isfile(path+'/features.txt'):
+            genes = np.loadtxt(path+'/features.txt',dtype=str)
+            self.logger.AppendText('sucessfully load features!\n')
+        else:
+            genes = None
+            self.logger.AppendText('faild load features!\n')
         if os.path.isfile(path+'/labels.txt'):
             self.labels = np.loadtxt(path+'/labels.txt',dtype=str)
             self.logger.AppendText('sucessfully load labels!\n') 
@@ -365,6 +398,10 @@ class HelloFrame(wx.Frame):
         # thresh int 保留所有细胞中均为大于thresh表达的基因
         # z_cutoff float 离散值
         # bins int  基因根据表达水平放在相等的箱子里
+        if self.X is None or self.genes is None:
+            wx.MessageBox("数据输入错误，请重新选择文件夹！","ERROR")
+            event.Skip()
+
         self.SetStatusText(u"正在进行特征选择")
         self.logger.AppendText(u"------------正在进行特征选择,请稍后--------\n")
         try:
@@ -446,8 +483,18 @@ class HelloFrame(wx.Frame):
             self.logger.AppendText("invalid input")
             event.Skip()
         if self.X_pre is None:
-            self.logger.AppendText('ERROR：请先进行特征选择！\n')
+            # self.logger.AppendText('ERROR：请先进行特征选择！\n')
+            wx.MessageBox('ERROR：请先进行特征选择！\n',"ERROR")
             event.Skip()
+        try:
+            if self.x1 is None or self.x2 is None:
+                # self.logger.AppendText('ERROR：请先进行特征选择！\n')
+                wx.MessageBox('ERROR：请先进行数据降维！\n',"ERROR")
+                event.Skip()
+        except AttributeError:
+            wx.MessageBox('ERROR：请先进行数据降维 ！\n',"ERROR")
+            event.Skip()
+                
         D = split.log_correlation(self.X_pre) 
         ys,shistory = split.dendrosplit((D,self.X_pre),
                                 preprocessing='precomputed',
@@ -475,7 +522,9 @@ class HelloFrame(wx.Frame):
             self.logger.AppendText('Adjusted rand score (ysk): %.2f\n'%(adjusted_rand_score(self.labels,ysk)))
             self.logger.AppendText('Adjusted rand score (ykmeans): %.2f\n'%(adjusted_rand_score(self.labels,ykmeans)))
             #plot_embedding(self.x1,self.x2,ym,ys,self.labels)
-            three_plots(self.x1,self.x2,self.labels,ys,ym,markersize=4,legend_pos=(1,-0.2))
+            three_plots(self.x1,self.x2,self.labels,ys,ym)
+        else:
+            three_no_labels_plot(self.x1,self.x2,ym,ysk,ykmeans)
         self.logger.AppendText(u"-------------聚类完成-------------\n")
         self.SetStatusText(u"聚类完成")
  
