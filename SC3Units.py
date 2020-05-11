@@ -4,7 +4,7 @@
 @Author: GolLight
 @LastEditors: Gollight
 @Date: 2020-05-11 21:40:03
-@LastEditTime: 2020-05-12 02:17:54
+@LastEditTime: 2020-05-12 03:03:08
 '''
 import sys
 import os
@@ -143,7 +143,7 @@ def SC3(X,cluster_num,split_score,merge_score):
                                 score_threshold=split_score,
                                 verbose=False,
                                 disband_percentile=50)
-    ym,mhistory = merge.dendromerge((D,X),ys,score_threshold=merge_score,preprocessing='precomputed',
+    ym,mhistory = merge.dendromerge((count_matrix,X),ys,score_threshold=merge_score,preprocessing='precomputed',
                                 verbose=False,outlier_threshold_percentile=90)
     return ym
 # x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
