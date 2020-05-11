@@ -6,6 +6,7 @@
 import sys
 import os
 sys.path.append("dendrosplit")
+sys.path.append("consensuscluster")
 import wx
 # from time import time
 import time as times
@@ -20,12 +21,22 @@ import pandas as pd
 import numpy as np 
 from sklearn.metrics import adjusted_rand_score
 import Gene_select
+from consensuscluster import TemplateClassifier
+import SC3Units as SC3
+
 
 
 def count_labels(labels):
     len1 = len(set(labels))
     return len1
 
+def select_samples(labels):
+    set_labels = set(labels)
+    keep_inst = []
+    labels1 = list(labels)
+    for i in set_labels:
+        keep_inst.append(labels1.index(i))
+    return keep_inst
 # Save expression matrix
 def save_mat_h5f(X,flname):
     h5f = h5py.File(flname, 'w')
@@ -86,7 +97,7 @@ def three_no_labels_plot(x1,x2,ym,ysk,ykmeans,legend_pos=(1.5,1),markersize=5,se
     plt.subplot(1,3,1)
     split.plot_labels_legend(x1,x2,ym,show_axes=False,legend_pos=legend_pos,
                              markersize=markersize,select_inds=select_inds)
-    plt.title('Labels after merge')
+    plt.title('consensuscluster')
     plt.subplot(1,3,2)
     split.plot_labels_legend(x1,x2,ysk,show_axes=False,legend_pos=legend_pos,
                              markersize=markersize,select_inds=select_inds)
@@ -509,22 +520,32 @@ class HelloFrame(wx.Frame):
         # 对比算法
         if self.labels is not None:
             cluster_num = count_labels(self.labels)
-            ysk = clustering.skDBSCAN(D)
+            ysk = clustering.skDBSCAN(D,eps=0.00005)
             ykmeans = clustering.kMeans(self.X_pre,cluster_num)
+            clf = TemplateClassifier()
+            keep = select_samples(self.labels)
+            clf.fit(self.X_pre[keep,:],self.labels[keep])
+            yclf = clf.predict(self.X_pre)
+            t0 = time()
+            ySC3 = SC3.SC3(self.X_pre,cluster_num,split_score,merge_score)
+            t1 = time()
+            self.logger.AppendText("SC3: %.2g sec\n" % (t1 - t0))  # 算法用时
         else:
             ysk = clustering.skDBSCAN(D)
             ykmeans = clustering.kMeans(self.X_pre,8)
-        
+            
         
         if self.labels is not None:
             self.logger.AppendText('Adjusted rand score (ys): %.2f\n'%(adjusted_rand_score(self.labels,ys)))
             self.logger.AppendText('Adjusted rand score (ym): %.2f\n'%(adjusted_rand_score(self.labels,ym)))
-            self.logger.AppendText('Adjusted rand score (ysk): %.2f\n'%(adjusted_rand_score(self.labels,ysk)))
+            self.logger.AppendText('Adjusted rand score (ySC3): %.2f\n'%(adjusted_rand_score(self.labels,ySC3)))
+            self.logger.AppendText('Adjusted rand score (yconsensus): %.2f\n'%(adjusted_rand_score(self.labels,yclf)))
             self.logger.AppendText('Adjusted rand score (ykmeans): %.2f\n'%(adjusted_rand_score(self.labels,ykmeans)))
             #plot_embedding(self.x1,self.x2,ym,ys,self.labels)
             three_plots(self.x1,self.x2,self.labels,ys,ym)
+            three_no_labels_plot(self.x1,self.x2,yclf,ysk,ykmeans)
         else:
-            three_no_labels_plot(self.x1,self.x2,ym,ysk,ykmeans)
+            three_no_labels_plot(self.x1,self.x2,ym,ySC3,ykmeans)
         self.logger.AppendText(u"-------------聚类完成-------------\n")
         self.SetStatusText(u"聚类完成")
  
