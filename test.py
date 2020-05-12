@@ -23,7 +23,7 @@ from sklearn.metrics import adjusted_rand_score
 import Gene_select
 from consensuscluster import TemplateClassifier
 import SC3Units as SC3
-
+import Safeunit as Safe
 
 
 def count_labels(labels):
@@ -92,20 +92,21 @@ def three_plots(x1,x2,Y,ys,ym,legend_pos=(1.5,1),markersize=5,select_inds=None):
     plt.title('Labels after merge')
     plt.show()
 
-def three_no_labels_plot(x1,x2,ym,ysk,ykmeans,legend_pos=(1.5,1),markersize=5,select_inds=None):
+def three_with_name_plot(x1,x2,ym,ysk,ykmeans,name1,name2,name3,legend_pos=(1.5,1),markersize=5,select_inds=None):
     plt.figure(figsize=(16,4))
     plt.subplot(1,3,1)
     split.plot_labels_legend(x1,x2,ym,show_axes=False,legend_pos=legend_pos,
                              markersize=markersize,select_inds=select_inds)
-    plt.title('consensuscluster')
+    plt.title(name1)
     plt.subplot(1,3,2)
     split.plot_labels_legend(x1,x2,ysk,show_axes=False,legend_pos=legend_pos,
                              markersize=markersize,select_inds=select_inds)
-    plt.title('DBSCAN')
+    # plt.title('DBSCAN')
+    plt.title(name2)
     plt.subplot(1,3,3)
     split.plot_labels_legend(x1,x2,ykmeans,show_axes=False,legend_pos=legend_pos,
                              markersize=markersize,select_inds=select_inds)
-    plt.title('kmeans')
+    plt.title(name3)
     plt.show()
 
 
@@ -510,12 +511,12 @@ class HelloFrame(wx.Frame):
         ys,shistory = split.dendrosplit((D,self.X_pre),
                                 preprocessing='precomputed',
                                 score_threshold=split_score,
-                                verbose=True,
+                                verbose=False,
                                 disband_percentile=50)
         #plot_embedding(D)
         # Merge cluster labels
         ym,mhistory = merge.dendromerge((D,self.X_pre),ys,score_threshold=merge_score,preprocessing='precomputed',
-                                verbose=True,outlier_threshold_percentile=90)
+                                verbose=False,outlier_threshold_percentile=90)
 
         # 对比算法
         if self.labels is not None:
@@ -527,8 +528,9 @@ class HelloFrame(wx.Frame):
             clf.fit(self.X_pre[keep,:],self.labels[keep])
             yclf = clf.predict(self.X_pre)
             t0 = time()
-            ySC3 = SC3.SC3(self.X_pre,cluster_num,split_score,merge_score)
+            ySC3 = SC3.SC3(self.X_pre,cluster_num)
             t1 = time()
+            ySafe = Safe.Safe_simple(self.X_pre,cluster_num,split_score,merge_score,SC3_lables=ySC3,den_labels=ym)
             self.logger.AppendText("SC3: %.2g sec\n" % (t1 - t0))  # 算法用时
         else:
             ysk = clustering.skDBSCAN(D)
@@ -539,13 +541,15 @@ class HelloFrame(wx.Frame):
             self.logger.AppendText('Adjusted rand score (ys): %.2f\n'%(adjusted_rand_score(self.labels,ys)))
             self.logger.AppendText('Adjusted rand score (ym): %.2f\n'%(adjusted_rand_score(self.labels,ym)))
             self.logger.AppendText('Adjusted rand score (ySC3): %.2f\n'%(adjusted_rand_score(self.labels,ySC3)))
+            self.logger.AppendText('Adjusted rand score (ySafe): %.2f\n'%(adjusted_rand_score(self.labels,ySafe)))
             self.logger.AppendText('Adjusted rand score (yconsensus): %.2f\n'%(adjusted_rand_score(self.labels,yclf)))
             self.logger.AppendText('Adjusted rand score (ykmeans): %.2f\n'%(adjusted_rand_score(self.labels,ykmeans)))
             #plot_embedding(self.x1,self.x2,ym,ys,self.labels)
             three_plots(self.x1,self.x2,self.labels,ys,ym)
-            three_no_labels_plot(self.x1,self.x2,yclf,ysk,ykmeans)
+            three_with_name_plot(self.x1,self.x2,ySafe,ySC3,ykmeans,"Safe","SC3","Kmeans")
         else:
-            three_no_labels_plot(self.x1,self.x2,ym,ySC3,ykmeans)
+            # three_with_name_plot(self.x1,self.x2,ym,ySC3,ykmeans)
+            pass
         self.logger.AppendText(u"-------------聚类完成-------------\n")
         self.SetStatusText(u"聚类完成")
  

@@ -4,7 +4,7 @@
 @Author: GolLight
 @LastEditors: Gollight
 @Date: 2020-05-11 21:40:03
-@LastEditTime: 2020-05-12 03:03:08
+@LastEditTime: 2020-05-12 23:34:24
 '''
 import sys
 import os
@@ -47,8 +47,8 @@ def pairwise_spearmanr(X):#斯皮尔曼相关系数
 @param  X {2-D array} N细胞* M基因矩阵 
 @return:最小维数dimsmin和最大维数 dimsmax
 '''
-def cal_dims(X):
-    dims = np.shape(X)[1]
+def cal_dims(X):  
+    dims = np.shape(X)[0] #应该是原细胞数的4%-7%
     dimsmin = (int)(dims * 0.04)
     dimsmax = (int)(dims * 0.07)
     return dimsmin,dimsmax
@@ -63,7 +63,7 @@ def kMeans(X,k):
 @name: cal_CSPA
 @test: test font
 @msg: 通过聚类结果计算共识矩阵，即A与B同属一类，
-则共识矩阵相应点上置1，否则置0。
+则共识矩阵相应点上置1，否则置0。                距离矩阵对角线是0
 @param ykmeans {1*N array} kmeans聚类结果 
 @return: 共识矩阵
 '''
@@ -99,18 +99,19 @@ def pca_kmeans_consensus_for_sc3(D1,D2,D3,dimsmin,dimsmax,cluster_num):
     dim = np.shape(D1)[0]
     count = 0
     count_matrix = np.zeros((dim, dim), dtype=np.float) #共识矩阵初始化0
-    for j in range(1,3):
+    for j in range(3):
         for i in range(dimsmin,dimsmax):
             D = []
-            if j == 1:
+            if j == 0:
                 D = D1
-            elif j == 2:
+            elif j == 1:
                 D = D2
             else:
                 D = D3
             pca=PCA(n_components=i)
             xdim = pca.fit_transform(D)#降维
             ykmeans = kMeans(xdim,cluster_num) #聚类
+            # print(ykmeans)
             count_matrix += cal_CSPA(ykmeans)
             count += 1
     count_matrix /= count
@@ -127,7 +128,7 @@ def pca_kmeans_consensus_for_sc3(D1,D2,D3,dimsmin,dimsmax,cluster_num):
 @param merge_score {0-100}  dendrosplit凝聚参数，一般为分离参数的一半
 @return: 聚类标签
 '''
-def SC3(X,cluster_num,split_score,merge_score):
+def SC3(X,cluster_num):
     #计算距离方阵
     D1 = pairwise_correlation(X)
     D2 = pairwise_euclidean(X)
@@ -136,16 +137,12 @@ def SC3(X,cluster_num,split_score,merge_score):
     #降维
     dimsmin,dimsmax = cal_dims(X)
     count_matrix = pca_kmeans_consensus_for_sc3(D1,D2,D3,dimsmin,dimsmax,cluster_num) #最终共识矩阵
-
     #层次聚类
-    ys,shistory = split.dendrosplit((count_matrix,X),
-                                preprocessing='precomputed',
-                                score_threshold=split_score,
-                                verbose=False,
-                                disband_percentile=50)
-    ym,mhistory = merge.dendromerge((count_matrix,X),ys,score_threshold=merge_score,preprocessing='precomputed',
-                                verbose=False,outlier_threshold_percentile=90)
-    return ym
+    linkage = 'complete'
+    clustering = AgglomerativeClustering(linkage = linkage, n_clusters = cluster_num)
+    clustering.fit(count_matrix)
+
+    return clustering.labels_
 # x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 # y = [1, 6, 8, 7, 10, 9, 3, 5, 2, 4]
 # x1 = [[1,2,3,4],
@@ -165,3 +162,13 @@ def SC3(X,cluster_num,split_score,merge_score):
 # x,y = (int)(49 * 0.04),(int)(49 * 0.07)
 # print(x)
 # print(y)
+# y = [0,1,2,1,2,0,2,1,3,4]
+# y1 = [0,0,2,1,2,0,2,1,3,4]
+# c1 = cal_CSPA(y)
+# c2 = cal_CSPA(y1)
+# print(c1)
+# print(c2)
+# print(c1+c2)
+# print((c1+c2)/2)
+# for j in range(3):
+#     print(j)
