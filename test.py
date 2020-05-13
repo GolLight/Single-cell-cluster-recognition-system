@@ -319,12 +319,13 @@ class HelloFrame(wx.Frame):
         """Display an About Dialog"""
         messtr = u"单细胞簇识别系统\n"
         messtr =messtr +u"这是个识别单细胞簇的层次聚类系统，使用方法如下：\n" 
-        messtr =messtr +u"1.将你的数据处理成三个文件expr.h5,features.txt,labels.txt,分别是用h5py.create_dataset创建的N细胞*M基因的细胞表达式矩阵和用np.savetxt函数保存的基因文件和标签文件(注意一行一个不能有空格）放在一个文件夹即可，可以没有标签\n"
+        messtr =messtr +u"1.将你的数据处理成三个文件expr.h5,features.txt,labels.txt,分别是用h5py.create_dataset创建的N细胞*M基因的细胞表达式矩阵和用np.savetxt函数保存的基因文件和标签文件(注意一行一个不能有空格）放在一个文件夹即可,可以参考prosess_sys.py\n"
         messtr =messtr +u"2.点击选择文件按钮选择文件夹，此时右边会提示成功与否\n"
         messtr =messtr +u"3.thresh表示过滤掉某个基因表达的细胞数少于百分比细胞数的，范围为0-1，为零时不过滤低表达基因\n" 
         messtr =messtr +u"z_cutoff是离散值，bins是分为几份，是整数，将基因按照在所有细胞表达均值分成bins份，然后去掉每一份zscore小于z_cutoff的基因\n"
         messtr =messtr +u"4.可以选择不同的降维算法进行降维\n"
-        messtr =messtr +u"5.split_score和merge_score是聚类的两个超参数，一般后者是前者的一半，基于韦尔奇t检查的两个集群之间的距离度量如果大于这个split_score就分裂，小于merge_score就合并(采用的聚类方法是先分裂再合并的)"
+        messtr =messtr +u"5.split_score和merge_score是聚类的两个超参数，一般后者是前者的一半，基于韦尔奇t检查的两个集群之间的距离度量如果大于这个split_score就分裂，小于merge_score就合并(采用的聚类方法是先分裂再合并的)\n"
+        messtr =messtr +u"6.ys是层次聚类分裂的结果，ym是分裂再凝聚后的结果，ySC3是SC3算法的结果，ySafe是SAFE算法的结果，yclf是一致性聚类的结果,yKmean是kmeans算法的结果"
         wx.MessageBox(messtr,
                       "About System",
                       wx.OK|wx.ICON_INFORMATION)
@@ -407,7 +408,7 @@ class HelloFrame(wx.Frame):
         # self.logger.AppendText('merge_score_threshold: %s\n' % event.GetString())
     
     def preprocess(self,event):
-        # thresh int 保留所有细胞中均为大于thresh表达的基因
+        # thresh int 保留细胞表达数百分比大于thresh的基因
         # z_cutoff float 离散值
         # bins int  基因根据表达水平放在相等的箱子里
         if self.X is None or self.genes is None:
@@ -506,7 +507,9 @@ class HelloFrame(wx.Frame):
         except AttributeError:
             wx.MessageBox('ERROR：请先进行数据降维 ！\n',"ERROR")
             event.Skip()
-                
+        
+        self.logger.AppendText('split_score: %s\n' % self.split_score_str)
+        self.logger.AppendText('merge_score: %s\n' % self.merge_score_str)
         D = split.log_correlation(self.X_pre) 
         ys,shistory = split.dendrosplit((D,self.X_pre),
                                 preprocessing='precomputed',
@@ -523,10 +526,12 @@ class HelloFrame(wx.Frame):
             cluster_num = count_labels(self.labels)
             ysk = clustering.skDBSCAN(D,eps=0.00005)
             ykmeans = clustering.kMeans(self.X_pre,cluster_num)
+            
             clf = TemplateClassifier()
             keep = select_samples(self.labels)
             clf.fit(self.X_pre[keep,:],self.labels[keep])
             yclf = clf.predict(self.X_pre)
+            
             t0 = time()
             ySC3 = SC3.SC3(self.X_pre,cluster_num)
             t1 = time()

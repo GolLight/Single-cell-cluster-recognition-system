@@ -4,7 +4,7 @@
 @Author: GolLight
 @LastEditors: Gollight
 @Date: 2020-05-12 17:08:03
-@LastEditTime: 2020-05-12 23:58:03
+@LastEditTime: 2020-05-13 10:12:01
 '''
 import SC3Units as SC3
 import sys
@@ -25,6 +25,12 @@ def kMeans(X,k):
     km = KMeans(n_clusters=k)
     return km.fit_predict(X)
 
+# Map labels to integers
+def str_labels_to_ints(y_str):
+    y_int = np.zeros(len(y_str))
+    for i,label in enumerate(np.unique(y_str)):
+        y_int[y_str == label] = i
+    return y_int.astype(int)
 '''
 @name: Safe_simple
 @test: test font
@@ -51,7 +57,9 @@ def Safe_simple(X,cluster_num,split_score,merge_score,SC3_lables=None,den_labels
     Xtsne = sk_tsne(X)
     kMeans_lables = kMeans(Xtsne,cluster_num)
 
-
+    SC3_lables = str_labels_to_ints(SC3_lables)
+    den_labels = str_labels_to_ints(den_labels)
+    kMeans_lables = str_labels_to_ints(kMeans_lables)
     #构造超图，N*H的二值矩阵，H等于聚类数目之和，在第n个基因(行)
     N = np.shape(X)[0] #细胞数
     H = (int)(len(SC3_lables)+len(den_labels)+len(kMeans_lables))

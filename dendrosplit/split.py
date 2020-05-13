@@ -107,6 +107,14 @@ def dendrosplit(X,preprocessing=log_correlation,min_clust_size=2,score_threshold
 #    D = (D+D.T)/2
     Ds = squareform(D)
     Z = linkage(Ds,method=method)
+    # 层次聚类编码为一个linkage矩阵。
+
+    # Z共有四列组成，第一字段与第二字段分别为聚类簇的编号，
+    # 在初始距离前每个初始值被从0~n-1进行标识，
+    # 每生成一个新的聚类簇就在此基础上增加一对新的聚类簇进行标识，
+    # 第三个字段表示前两个聚类簇之间的距离，
+    # 第四个字段表示新生成聚类簇所包含的元素的个数。
+
 
     N = len(X)
 
