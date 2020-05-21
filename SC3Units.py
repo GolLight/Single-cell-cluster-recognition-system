@@ -4,7 +4,7 @@
 @Author: GolLight
 @LastEditors: Gollight
 @Date: 2020-05-11 21:40:03
-@LastEditTime: 2020-05-12 23:34:24
+@LastEditTime: 2020-05-16 17:44:41
 '''
 import sys
 import os
@@ -63,7 +63,7 @@ def kMeans(X,k):
 @name: cal_CSPA
 @test: test font
 @msg: 通过聚类结果计算共识矩阵，即A与B同属一类，
-则共识矩阵相应点上置1，否则置0。                距离矩阵对角线是0
+则共识矩阵相应点上置1，否则置0。                距离矩阵对角线是1
 @param ykmeans {1*N array} kmeans聚类结果 
 @return: 共识矩阵
 '''

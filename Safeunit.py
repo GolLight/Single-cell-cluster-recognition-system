@@ -4,7 +4,7 @@
 @Author: GolLight
 @LastEditors: Gollight
 @Date: 2020-05-12 17:08:03
-@LastEditTime: 2020-05-13 10:12:01
+@LastEditTime: 2020-05-22 00:33:40
 '''
 import SC3Units as SC3
 import sys
@@ -15,8 +15,8 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import SpectralClustering,DBSCAN,KMeans,AgglomerativeClustering,AffinityPropagation
 import numpy as np
 
-def sk_tsne(X):
-    model = TSNE(verbose=False)
+def sk_tsne(X,p = 30.0):
+    model = TSNE(verbose=False,perplexity=p)
     X_tSNE = model.fit_transform(X)
     return X_tSNE
 
@@ -54,14 +54,19 @@ def Safe_simple(X,cluster_num,split_score,merge_score,SC3_lables=None,den_labels
                                 verbose=False,outlier_threshold_percentile=90)
         den_labels = ym
     
-    Xtsne = sk_tsne(X)
+
+    #应该细胞数小于200的困惑度p设为10否则默认30
+    N = np.shape(X)[0] #细胞数
+    if N > 200:
+        Xtsne = sk_tsne(X,p = 30.0)
+    else:
+        Xtsne = sk_tsne(X,p = 10.0)
     kMeans_lables = kMeans(Xtsne,cluster_num)
 
     SC3_lables = str_labels_to_ints(SC3_lables)
     den_labels = str_labels_to_ints(den_labels)
     kMeans_lables = str_labels_to_ints(kMeans_lables)
     #构造超图，N*H的二值矩阵，H等于聚类数目之和，在第n个基因(行)
-    N = np.shape(X)[0] #细胞数
     H = (int)(len(SC3_lables)+len(den_labels)+len(kMeans_lables))
     h_matrix = np.zeros((N, H), dtype=np.float) #共识矩阵初始化0
     for i in range(3):
@@ -87,7 +92,7 @@ def Safe_simple(X,cluster_num,split_score,merge_score,SC3_lables=None,den_labels
     clustering = AgglomerativeClustering(linkage = linkage, n_clusters = cluster_num)
     clustering.fit(S)
 
-    return clustering.labels_
+    return clustering.labels_,kMeans_lables
 
 
 # h_matrix = np.ones((3, 4), dtype=np.float) #共识矩阵初始化0

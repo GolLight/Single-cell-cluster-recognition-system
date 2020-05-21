@@ -490,8 +490,8 @@ class HelloFrame(wx.Frame):
         self.SetStatusText(u"正在进行聚类")
         self.logger.AppendText(u"--------正在进行聚类,请稍后-----------\n")
         try:
-            split_score = int(self.split_score_str)
-            merge_score = int(self.merge_score_str)
+            split_score = float(self.split_score_str)
+            merge_score = float(self.merge_score_str)
         except ValueError:
             self.logger.AppendText("invalid input")
             event.Skip()
@@ -535,7 +535,7 @@ class HelloFrame(wx.Frame):
             t0 = time()
             ySC3 = SC3.SC3(self.X_pre,cluster_num)
             t1 = time()
-            ySafe = Safe.Safe_simple(self.X_pre,cluster_num,split_score,merge_score,SC3_lables=ySC3,den_labels=ym)
+            ySafe,ykmeans = Safe.Safe_simple(self.X_pre,cluster_num,split_score,merge_score,SC3_lables=ySC3,den_labels=ym)
             self.logger.AppendText("SC3: %.2g sec\n" % (t1 - t0))  # 算法用时
         else:
             ysk = clustering.skDBSCAN(D)
