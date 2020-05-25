@@ -1,0 +1,20 @@
+----------欢迎来到单细胞簇识别系统1.0！-------------
+你已经选择文件目录F:\VSCode_workspace\Biase
+sucessfully load expr!
+sucessfully load features!
+sucessfully load labels!
+49 cells, 24070 features loaded
+thresh: 0
+z_cutoff: 1.5
+bins: 5
+------------正在进行特征选择,请稍后--------
+Kept 23895 features for having > 0 counts across all cells
+Kept 3410 features after DropSeq gene selection step.
+----------------特征选择完成-------------
+thresh: 0
+z_cutoff: 1.5
+bins: 3
+------------正在进行特征选择,请稍后--------
+Kept 23895 features for having > 0 counts across all cells
+Kept 3585 features after DropSeq gene selection step.
+----------------特征选择完成-------------

@@ -432,6 +432,7 @@ class HelloFrame(wx.Frame):
         # # DropSeq approach to gene selection
         # keep_inds = split.dropseq_gene_selection(np.log(1+X_pre),z_cutoff=z_cutoff,bins=5)
         X_pre,genes_pre = split.filter_genes(self.X,self.genes,0)
+        self.X_pre,self.genes_pre = X_pre,genes_pre
         self.logger.AppendText('Kept %d features for having > %d counts across all cells\n'%(len(X_pre[0]),0))
         if thresh != 0:
             keep_inds_filter = Gene_select.filter_genes(X_pre,min_pct_cells=thresh)
@@ -441,10 +442,10 @@ class HelloFrame(wx.Frame):
         #keep_inds = Gene_select.filter_genes(X_pre,min_pct_cells=thresh,min_count=bins,expr_cutoff=z_cutoff)
         # keep_inds = Gene_select.filter_and_slect_genes(X_pre,multi = thresh,min_pct_cells = z_cutoff,k=bins)
         #keep_inds = Gene_select.filter_and_slect_genes1(X_pre,z_cutoff = z_cutoff,bins=bins,min_pct_cells = thresh)
-        keep_inds = split.dropseq_gene_selection(np.log(1+X_pre),z_cutoff=z_cutoff,bins=bins)
-        self.X_pre,self.genes_pre = X_pre[:,keep_inds],genes_pre[keep_inds]
+            keep_inds = split.dropseq_gene_selection(np.log(1+X_pre),z_cutoff=z_cutoff,bins=bins)
+            self.X_pre,self.genes_pre = X_pre[:,keep_inds],genes_pre[keep_inds]
        
-        self.logger.AppendText('Kept %s features after DropSeq gene selection step.\n'%(len(self.X_pre[0])))
+            self.logger.AppendText('Kept %s features after DropSeq gene selection step.\n'%(len(self.X_pre[0])))
         self.logger.AppendText(u"----------------特征选择完成-------------\n")
         self.SetStatusText(u"特征选择完成")
        
